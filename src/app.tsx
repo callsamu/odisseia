@@ -89,8 +89,43 @@ const Body = Node.create({
 
 const CONTENT_NODES = [Paragraph.name, Heading.name];
 
+interface FontData {
+	family: string;
+	size: string;
+	weight: string;
+}
+
+function CSS(element: Element, prop: string): string {
+	return getComputedStyle(element).getPropertyValue(prop);
+}
+
+class TextMeasurer {
+	canvas: HTMLCanvasElement;
+	ctx: CanvasRenderingContext2D;
+	paragraphData: FontData;
+
+	constructor() {
+		this.canvas = document.createElement('canvas');
+		this.ctx = this.canvas.getContext('2d')!;
+
+		const p = document.querySelector('.tiptap p');
+		if (!p) throw new Error('Failed to get paragraph element');
+		this.paragraphData = {
+			family: CSS(p, 'font-family'),
+			size: CSS(p, 'font-size'),
+			weight: CSS(p, 'font-weight'),
+		};
+	}
+
+	paragraph(text: string) {
+		this.ctx.font = `${this.paragraphData.weight} ${this.paragraphData.size} ${this.paragraphData.family}`;
+		return this.ctx.measureText(text).width;
+	}
+}
+
 class Paginator {
 	bodyDimensions: DOMRect;
+	measurer = new TextMeasurer();
 
 	constructor(
 		public view: EditorView,
@@ -110,14 +145,14 @@ class Paginator {
 
 	public splitDocument(tr: Transaction, split?: ResolvedPos): Transaction {
 		if (!split) {
-			const s = this.getSplitPos(tr.doc);
+			const s = this.findSplitNodePos(tr.doc);
 			if (!s) return tr;
 			split = s;
 		}
 
 		let newTransaction = this.splitPage(tr, split);
 
-		const after = this.getSplitPos(newTransaction.doc);
+		const after = this.findSplitNodePos(newTransaction.doc);
 		if (after) {
 			return this.splitDocument(newTransaction, after);
 		}
@@ -128,13 +163,13 @@ class Paginator {
 	private splitPage(tr: Transaction, $pos: ResolvedPos): Transaction {
 		const { pos, depth } = $pos;
 
-		const paragraph = $pos.doc.nodeAt(pos);
+		let paragraph = $pos.doc.nodeAt(pos);
 		if (!paragraph) return tr;
 
-		const bodyOfPage = $pos.node(depth);
+		const bodyOfPage = $pos.parent;
 		const contents: NodePM[] = [];
 		bodyOfPage.forEach((node, nodePos) => {
-			if (nodePos >= $pos.parentOffset) {
+			if (nodePos > $pos.parentOffset) {
 				contents.push(node);
 			}
 		});
@@ -146,7 +181,7 @@ class Paginator {
 		return tr.replaceWith(pos, end, page);
 	}
 
-	private getSplitPos(doc: NodePM): ResolvedPos | null {
+	private findSplitNodePos(doc: NodePM): ResolvedPos | null {
 		let split!: ResolvedPos;
 		let height = 0;
 
@@ -275,16 +310,16 @@ const Paging: Extension = Extension.create<{}, PagingStorage>({
 				deleting = tr.doc.nodeSize < prev.doc.nodeSize
 		}
 
-		console.log(this.storage);
-
 		const inserting = isOverflown(bodyElement);
 
 		if (inserting || deleting) {
 			const paginator = new Paginator(editor.view, editor.state, bodyElement);
+
 			let newTransaction = tr;
 			newTransaction = paginator.joinDocument(newTransaction);
 			newTransaction = paginator.splitDocument(newTransaction);
 			newTransaction = newTransaction.scrollIntoView();
+
 			const state = editor.state.apply(newTransaction);
 			editor.view.updateState(state);
 		}
