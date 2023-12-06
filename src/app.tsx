@@ -7,7 +7,6 @@ import { Editor } from '@tiptap/core';
 import { findParentDomRefOfType } from 'prosemirror-utils';
 import { Fragment, ResolvedPos } from '@tiptap/pm/model';
 import { EditorState, Plugin, Transaction } from '@tiptap/pm/state';
-import { EditorView } from '@tiptap/pm/view';
 import { Node as NodePM } from '@tiptap/pm/model'
 import { v4 as uuid } from 'uuid';
 import { TextAlign } from '@tiptap/extension-text-align';
@@ -95,14 +94,14 @@ interface FontData {
 	weight: string;
 }
 
-function CSS(element: Element, prop: string): string {
-	return getComputedStyle(element).getPropertyValue(prop);
-}
-
 class TextMeasurer {
 	canvas: HTMLCanvasElement;
 	ctx: CanvasRenderingContext2D;
 	paragraphData: FontData;
+
+	static CSS(element: Element, prop: string): string {
+		return getComputedStyle(element).getPropertyValue(prop);
+	}
 
 	constructor() {
 		this.canvas = document.createElement('canvas');
@@ -110,31 +109,31 @@ class TextMeasurer {
 
 		const p = document.querySelector('.tiptap p');
 		if (!p) throw new Error('Failed to get paragraph element');
+
 		this.paragraphData = {
-			family: CSS(p, 'font-family'),
-			size: CSS(p, 'font-size'),
-			weight: CSS(p, 'font-weight'),
+			family: TextMeasurer.CSS(p, 'font-family'),
+			size: TextMeasurer.CSS(p, 'font-size'),
+			weight: TextMeasurer.CSS(p, 'font-weight'),
 		};
 	}
 
-	paragraph(text: string) {
-		this.ctx.font = `${this.paragraphData.weight} ${this.paragraphData.size} ${this.paragraphData.family}`;
-		return this.ctx.measureText(text).width;
+	font(type: FontData) {
+		this.ctx.font = `${type.weight} ${type.size} ${type.family}`;
+	}
+
+	paragraph(text: string): TextMetrics {
+		this.font(this.paragraphData);
+		return this.ctx.measureText(text);
 	}
 }
 
 class Paginator {
-	bodyDimensions: DOMRect;
-	measurer = new TextMeasurer();
-
 	constructor(
-		public view: EditorView,
-		public state: EditorState,
-		body: HTMLElement,
-	) {
-		const rect = body.getBoundingClientRect();
-		this.bodyDimensions = rect;
-	}
+		private deleting: boolean,
+		private state: EditorState,
+		private pagesLastLinePositions: Map<string, number>,
+		private bodyDimensions: DOMRect,
+	) {}
 
 	public joinDocument(tr: Transaction): Transaction {
 		while (tr.doc.childCount > 1) {
@@ -150,24 +149,42 @@ class Paginator {
 			split = s;
 		}
 
-		let newTransaction = this.splitPage(tr, split);
+		let newTr = this.splitPage(tr, split);
 
-		const after = this.findSplitNodePos(newTransaction.doc);
+		const after = this.findSplitNodePos(newTr.doc);
 		if (after) {
-			return this.splitDocument(newTransaction, after);
+			return this.splitDocument(newTr, after);
 		}
 
-		return newTransaction;
+		return newTr;
 	}
 
 	private splitPage(tr: Transaction, $pos: ResolvedPos): Transaction {
 		const { pos, depth } = $pos;
+
+		let paragraphSplitPos = -1;
 
 		let paragraph = $pos.doc.nodeAt(pos);
 		if (!paragraph) return tr;
 
 		const bodyOfPage = $pos.parent;
 		const contents: NodePM[] = [];
+
+		if (paragraph.attrs.id && !this.deleting) {
+			const id = paragraph.attrs.id;
+			const position = this.pagesLastLinePositions.get(id);
+			paragraphSplitPos = position || -1;
+		}
+
+		if (paragraphSplitPos > 0) {
+			const text = this.state.doc.textBetween(paragraphSplitPos - 1, $pos.end());
+			console.log(text);
+			const frag = Fragment.from(this.state.schema.text(text));
+			contents.push(paragraph.copy(frag));
+		} else {
+			contents.push(paragraph);
+		}
+
 		bodyOfPage.forEach((node, nodePos) => {
 			if (nodePos > $pos.parentOffset) {
 				contents.push(node);
@@ -178,7 +195,8 @@ class Paginator {
 		const page = this.state.schema.nodes['page'].create(null, body);
 
 		const end = $pos.doc.resolve(0).end();
-		return tr.replaceWith(pos, end, page);
+		const splitPosition = paragraphSplitPos > 0 ? paragraphSplitPos : pos;
+		return tr.replaceWith(splitPosition - 1, end, page);
 	}
 
 	private findSplitNodePos(doc: NodePM): ResolvedPos | null {
@@ -282,8 +300,9 @@ const UniqueID: Extension = Extension.create<any>({
 })
 
 interface PagingStorage {
-	previousState: EditorState | null
-}
+	previousState: EditorState | null;
+	pagesLastLinePositions: Map<string, number>;
+};
 
 const Paging: Extension = Extension.create<{}, PagingStorage>({
 	name: 'paging',
@@ -291,12 +310,15 @@ const Paging: Extension = Extension.create<{}, PagingStorage>({
 	addStorage() {
 		return {
 			previousState: null,
+			pagesLastLinePositions: new Map(),
 		}
 	},
 
 	// @ts-ignore
   onUpdate({ editor }: { editor: Editor }): void {
-		const { schema, selection, tr } = editor.state;
+		const { schema, selection } = editor.state;
+
+		let newTr = editor.state.tr;
 
 		const domAtPos = editor.view.domAtPos.bind(editor.view);
 		const bodyDOM = findParentDomRefOfType(schema.nodes['body'], domAtPos)(selection);
@@ -307,26 +329,67 @@ const Paging: Extension = Extension.create<{}, PagingStorage>({
 		if (this.storage.previousState) {
 			const prev = this.storage.previousState;
 			if (selection.$anchor.node(2) && prev.selection.$anchor.node(2))
-				deleting = tr.doc.nodeSize < prev.doc.nodeSize
+				deleting = newTr.doc.nodeSize < prev.doc.nodeSize
 		}
 
 		const inserting = isOverflown(bodyElement);
 
 		if (inserting || deleting) {
-			const paginator = new Paginator(editor.view, editor.state, bodyElement);
+			const rect = bodyElement.getBoundingClientRect();
+			const pllp = this.storage.pagesLastLinePositions;
+			const paginator = new Paginator(deleting, editor.state, pllp, rect);
 
-			let newTransaction = tr;
-			newTransaction = paginator.joinDocument(newTransaction);
-			newTransaction = paginator.splitDocument(newTransaction);
-			newTransaction = newTransaction.scrollIntoView();
-
-			const state = editor.state.apply(newTransaction);
+			newTr = paginator.joinDocument(newTr);
+			newTr = paginator.splitDocument(newTr);
+			newTr = newTr.scrollIntoView();
+			const state = editor.state.apply(newTr);
 			editor.view.updateState(state);
 		}
 
+		
+		const viewState = editor.view.state.doc;
+		const measurer = new TextMeasurer();
+	
+		viewState.descendants((node, pos) => {
+			if (node.type.name === Paragraph.name) {
+				const $pos = viewState.resolve(pos);
+				const body = $pos.parent;
+				if (body.lastChild !== node) return false;
+
+				const paragraph = editor.view.nodeDOM(pos) as HTMLElement;
+				const dummy = document.createElement("span");
+				paragraph.appendChild(dummy);
+				let lastLineWidth = dummy.offsetLeft - bodyElement.offsetLeft;
+				dummy.remove();
+
+				const end = $pos.end();
+				let lastLinePos = end;
+
+				let width = 0;
+				let prevWidth = null;
+
+				while (lastLineWidth > width && width !== prevWidth) {
+					lastLinePos -= 1;
+					const text = viewState.textBetween(lastLinePos - 1, end);
+					const metrics = measurer.paragraph(text);
+
+					prevWidth = width;
+					width = Math.round(metrics.width);
+
+					if (lastLinePos < pos) {
+						throw new Error("infinite loop while determining last line");
+					}
+				}
+
+				this.storage.pagesLastLinePositions.set(node.attrs.id, lastLinePos);
+
+				return false;
+			}
+		});
+	
 		this.storage.previousState = editor.state;
-	},
-})
+	}
+});
 
 const extensions = [
 	Paging,
