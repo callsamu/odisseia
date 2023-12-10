@@ -9,7 +9,7 @@ import { EditorState, TextSelection, Transaction } from '@tiptap/pm/state';
 import { Node as NodePM } from '@tiptap/pm/model'
 import { TextAlign } from '@tiptap/extension-text-align';
 import { Paragraph } from '@tiptap/extension-paragraph';
-import { Heading } from '@tiptap/extension-heading';
+import { Heading, Level } from '@tiptap/extension-heading';
 import { Bold } from '@tiptap/extension-bold';
 import { Button, Space } from 'antd';
 import ButtonGroup from 'antd/es/button/button-group';
@@ -86,41 +86,28 @@ const Body = Node.create({
 
 const CONTENT_NODES = [Paragraph.name, Heading.name];
 
-interface FontData {
-	family: string;
-	size: string;
-	weight: string;
+function getCSS(element: Element, prop: string): string {
+	return getComputedStyle(element).getPropertyValue(prop);
+}
+
+function fromPX(px: string): number {
+	return Number(px.replace("px", ""));
 }
 
 class TextMeasurer {
 	canvas: HTMLCanvasElement;
 	ctx: CanvasRenderingContext2D;
-	paragraphData: FontData;
-
-	static CSS(element: Element, prop: string): string {
-		return getComputedStyle(element).getPropertyValue(prop);
-	}
 
 	constructor() {
 		this.canvas = document.createElement('canvas');
 		this.ctx = this.canvas.getContext('2d')!;
-
-		const p = document.querySelector('.tiptap p');
-		if (!p) throw new Error('Failed to get paragraph element');
-
-		this.paragraphData = {
-			family: TextMeasurer.CSS(p, 'font-family'),
-			size: TextMeasurer.CSS(p, 'font-size'),
-			weight: TextMeasurer.CSS(p, 'font-weight'),
-		};
 	}
 
-	font(type: FontData) {
-		this.ctx.font = `${type.weight} ${type.size} ${type.family}`;
+	setFont(font: string) {
+		this.ctx.font = font;
 	}
 
-	paragraph(text: string): TextMetrics {
-		this.font(this.paragraphData);
+	metrics(text: string): TextMetrics {
 		return this.ctx.measureText(text);
 	}
 }
@@ -130,13 +117,13 @@ interface LineData {
 	size: number;
 }
 
-class LineHelper {
+class LineBreaker {
 	constructor(
 		private measurer: TextMeasurer,
 		private bounds: DOMRect,
 	) {}
 
-	lines(node: NodePM): LineData[] {
+	lines(node: NodePM, style: ContentStyle): LineData[] {
 		const text = node.textContent;
 		if (text.length === 0) return [];
 
@@ -144,8 +131,14 @@ class LineHelper {
 		let prevLine = 0;
 		let lineWidth = 0;
 		const lines: LineData[] = [];
+		console.log(style.weight);
 
-		const blank = this.measurer.paragraph(" ");
+		const font = `${style.weight} ${style.fontSize} ${style.fontFamily}`;
+		this.measurer.setFont(font);
+		console.log(font);
+		console.log(this.measurer.ctx.font);
+
+		const blank = this.measurer.metrics(" ");
 
 		for (let i = 0; i < text.length; i++) {
 			const char = text[i];
@@ -156,10 +149,10 @@ class LineHelper {
 				if (word === " ") {
 					width = blank.width;
 				} else {
-					const metrics = this.measurer.paragraph(word);
+					const metrics = this.measurer.metrics(word);
 					width = metrics.width;
 				}
-
+				
 				if (lineWidth + width > this.bounds.width) {
 					lines.push({ 
 						position: prevLine, 
@@ -182,17 +175,18 @@ class LineHelper {
 			}
 		}
 
+		console.log(lines, lineWidth);
+
 		return lines;
 	}
 }
 
 class Paginator {
 	constructor(
-		private llh: LineHelper,
-		private state: EditorState,
-		private deleting: boolean,
+		private lb: LineBreaker,
+		private schema: Schema,
 		private bodyDimensions: DOMRect,
-		private contentStyles: Map<string, ContentStyle>,
+		private contentStyles: ContentStyles,
 	) {}
 
 	public joinDocument(tr: Transaction): Transaction {
@@ -204,7 +198,7 @@ class Paginator {
 		}
 
 		const body = tr.doc.firstChild?.firstChild;
-		if (!body) return tr;
+		if (!body) throw new Error('unable to get document body');
 
 		let previousNode!: NodePM;
 		let previousPos!: number;
@@ -212,7 +206,7 @@ class Paginator {
 		body.forEach((node, rpos) => {
 			const pos = rpos + 1;
 
-			if (node.attrs.broken && previousNode?.attrs.broken) {
+			if (previousNode?.attrs.broken) {
 				const T1 = previousNode.firstChild;
 				const T2 = node.firstChild;
 				if (!T1 || !T2) throw new Error('Failed to join broken nodes: unable to get contents');
@@ -237,7 +231,8 @@ class Paginator {
 				const resultant = tr.doc.nodeAt(previousPos + 1);
 				if (!resultant) throw new Error('Failed to join broken nodes: unable to get resultant node');
 
-				const lines = this.llh.lines(resultant);
+				const style = retrieveStyleOf(resultant, this.contentStyles);
+				const lines = this.lb.lines(resultant, style);
 				tr = tr.setNodeAttribute(previousPos + 1, "lines", lines);
 			}
 
@@ -284,7 +279,7 @@ class Paginator {
 			if (newTr.selection.$head.pos > pos) anchorSplitPart = 1;
 			newTr = newTr.setNodeAttribute($pos.pos - $pos.parentOffset - 1, 'broken', true);
 			const text = parent.textBetween($pos.parentOffset + 1, parent.nodeSize - 2);
-			const fragment = Fragment.from(this.state.schema.text(text));
+			const fragment = Fragment.from(this.schema.text(text));
 			contents.push(parent.copy(fragment));
 		}
 
@@ -297,7 +292,7 @@ class Paginator {
 		});
 
 		const newBody = body.copy(Fragment.fromArray(contents));
-		const pageType  = this.state.schema.nodes['page'];
+		const pageType  = this.schema.nodes['page'];
 		const newPage = pageType.create(null, Fragment.from(newBody));
 
 		const $anchor = newTr.selection.$anchor;
@@ -319,8 +314,6 @@ class Paginator {
 		} 
 
 		console.log("BROKEN ANCHOR-SPLIT-PART", broken, anchorSplitPart);
-
-		newTr = newTr.setNodeAttribute(pos + factor + 4, 'broken', broken);
 
 		return newTr;
 	}
@@ -344,7 +337,7 @@ class Paginator {
 			}
 
 			if (CONTENT_NODES.includes(type)) {
-				const lineHeight = this.contentStyles.get(type)?.lineHeight;
+				const lineHeight = retrieveStyleOf(node, this.contentStyles).lineHeight;
 				if (!lineHeight) throw new Error(`${type} line height not determined`);
 
 				const lines: LineData[] = node.attrs.lines;
@@ -392,6 +385,8 @@ interface ContentStyle {
 	ident: number;
 }
 
+type ContentStyles = Map<string, ContentStyle>;
+
 function getSchemaNodeStyles(
 	schema: Schema, 
 	editor: Element, 
@@ -401,21 +396,43 @@ function getSchemaNodeStyles(
 	const paragraph = Fragment.from(schema.nodes[type].create(attrs));
 	const node = DOMSerializer.fromSchema(schema).serializeFragment(paragraph);
 
-
 	editor.appendChild(node);
 	const element = editor.lastElementChild;
 	if (!element) throw new Error('Failed to get paragraph element');
 
 	const styles: ContentStyle = {
-		fontFamily: TextMeasurer.CSS(element, 'font-family'),
-		fontSize: TextMeasurer.CSS(element, 'line-height'),
-		weight: TextMeasurer.CSS(element, 'font-weight'),
-		lineHeight: Number(TextMeasurer.CSS(element, 'line-height').replace("px", "")),
-		ident: Number(TextMeasurer.CSS(element, 'text-indent').replace("px", "")),
+		fontFamily: getCSS(element, 'font-family'),
+		fontSize: getCSS(element, 'font-size'),
+		weight: getCSS(element, 'font-weight'),
+		lineHeight: fromPX(getCSS(element, 'line-height')),
+		ident: fromPX(getCSS(element, 'text-indent')),
 	}
 
+	console.log(styles);
+	
 	element.remove();
 	return styles;
+}
+
+function styleKeyOf(node: NodePM) {
+	if (node.type.name === Heading.name) {
+		return Heading.name + "-" + node.attrs.level;
+	} else {
+		return node.type.name;
+	}
+}
+
+function retrieveStyleOf(node: NodePM, styles: ContentStyles): ContentStyle {
+	const key = styleKeyOf(node);
+
+	const style = styles.get(key);
+	if (!style) throw new Error(`Node ${key} style not found`);
+
+	return style;
+}
+
+interface PagingOptions {
+	headings: number[];
 }
 
 interface PagingStorage {
@@ -423,20 +440,28 @@ interface PagingStorage {
 	contentStyles: Map<string, ContentStyle>;
 };
 
-const Paging: Extension = Extension.create<{}, PagingStorage>({
+const Paging: Extension = Extension.create<PagingOptions, PagingStorage>({
 	name: 'paging',
 
+	addOptions() {
+		return {
+			headings: [2],
+		};
+	},
+
 	addExtensions() {
+		const { headings } = this.options;
 		return [
 			Doc,
 			Page,
 			Body,
 			Paragraph,
-			Heading.configure({
-				levels: [1, 2, 3, 4, 5, 6],
+			Heading.configure({ 
+				levels: headings as Level[],
 			}),
 			Text,
 			TextAlign.configure({
+				defaultAlignment: 'justify',
 				types: ['heading', 'paragraph'],
 			}),
 			Bold,
@@ -478,18 +503,20 @@ const Paging: Extension = Extension.create<{}, PagingStorage>({
 		if (!parent) throw new Error('Failed to get editor element');
 
 		for (const type of CONTENT_NODES) {
-			if (type === "heading") {
-				for (let i = 1; i <= 6; i++) {
-					const attrs = { level: i };
+			if (type === Heading.name) {
+				for (const level of this.options.headings) {
+					const attrs = { level };
 					const styles = getSchemaNodeStyles(editor.schema, parent, type, attrs);
-					const key = [type, i].join('-');
+					const key = type + "-" + level;
 					storage.contentStyles.set(key, styles);
+					console.log(key, styles);
 				}
 			} else {
 				const attrs = {};
 				const styles = getSchemaNodeStyles(editor.schema, parent, type, attrs);
 				const key = type;
 				storage.contentStyles.set(key, styles);
+				console.log(key, styles);
 			}
 		}
 
@@ -498,13 +525,14 @@ const Paging: Extension = Extension.create<{}, PagingStorage>({
 
 		const dimensions = bodyElement.getBoundingClientRect();
 		const measurer = new TextMeasurer();
-		const llh = new LineHelper(measurer, dimensions);
+		const lb = new LineBreaker(measurer, dimensions);
 
 		let newTr = editor.state.tr;
 
 		editor.state.doc.descendants((node, pos) => {
 			if (CONTENT_NODES.includes(node.type.name)) {
-				const lines = llh.lines(node);
+				const style = retrieveStyleOf(node, storage.contentStyles);
+				const lines = lb.lines(node, style);
 				newTr = newTr.setNodeAttribute(pos, "lines", lines);
 			}
 		});
@@ -517,20 +545,30 @@ const Paging: Extension = Extension.create<{}, PagingStorage>({
 		const { editor, storage } = this;
 		const { schema, selection, doc } = editor.state;
 
+		const elem = document.querySelector(".tiptap p");
+		if (elem) {
+			const css = getCSS(elem, 'font-size');
+			console.log(css);
+		}
+
 		let newTr = editor.state.tr;
 
 		let inserting = false;
 		let deleting = false;
 
-		const prev = storage.previousState;
+		const { 
+			previousState: prev, 
+			contentStyles: styles,
+		} = storage;
+
 		if (prev) {
 			if (selection.$anchor.node(2) && prev.selection.$anchor.node(2))
 				deleting = newTr.doc.nodeSize < prev.doc.nodeSize;
 		}
 
 		const { $anchor } = selection;
-		const parent = $anchor.parent;
-		const $parentPos = doc.resolve($anchor.pos - $anchor.parentOffset - 1);
+		const content = $anchor.parent;
+		const $contentPos = doc.resolve($anchor.pos - $anchor.parentOffset - 1);
 
 		const domAtPos = editor.view.domAtPos.bind(editor.view);
 		const { node: body } = findParentNodeOfType(schema.nodes['body'])(selection) ?? {};
@@ -542,23 +580,22 @@ const Paging: Extension = Extension.create<{}, PagingStorage>({
 		inserting = isOverflown(bodyElement);
 
 		const measurer = new TextMeasurer();
-		const llh = new LineHelper(measurer, rect);
-		const lines = llh.lines(parent);
-		const prevLines: LineData[] = parent.attrs.lines;
-		newTr.setNodeAttribute($parentPos.pos, 'lines', lines);
+		const lb = new LineBreaker(measurer, rect);
+		const lines = lb.lines(content, retrieveStyleOf(content, styles));
+		const prevLines: LineData[] = content.attrs.lines;
+		newTr.setNodeAttribute($contentPos.pos, 'lines', lines);
 
 		inserting = inserting || 
 			prevLines.length > lines.length && 
-			body.lastChild === parent &&
-			parent.attrs.broken;
+			body.lastChild === content &&
+			content.attrs.broken;
 
 		if (inserting || deleting) {
 			const paginator = new Paginator(
-				llh,
-				editor.state,
-				deleting,
+				lb,
+				editor.state.schema,
 				rect,
-				storage.contentStyles
+				styles
 			);
 
 			newTr = paginator.joinDocument(newTr);
@@ -583,28 +620,14 @@ function EditorToolbar() {
 		<Space className="editor-options">
 			<ButtonGroup>
 				<Button
-					onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
-					disabled={!editor.can().toggleHeading({ level: 1 })}
-					type={editor.isActive('heading', { level: 1 }) ? 'primary' : 'default'}
-				>
-					H1
-				</Button>
-				<Button
 					onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
 					disabled={!editor.can().toggleHeading({ level: 2 })}
 					type={editor.isActive('heading', { level: 2 }) ? 'primary' : 'default'}
 				>
-					H2
+					Título
 				</Button>
 			</ButtonGroup>
 			<ButtonGroup>
-				<Button 
-					onClick={() => editor.chain().focus().setTextAlign('left').run()}
-					disabled={!editor.can().setTextAlign('left')}
-					type={editor.isActive({ textAlign: 'left' }) ? 'primary' : 'default'}
-				>
-					Normal
-				</Button>
 				<Button 
 					onClick={() => editor.chain().focus().setTextAlign('center').run()}
 					disabled={!editor.can().setTextAlign('center')}
@@ -627,18 +650,15 @@ function EditorToolbar() {
 }
 
 function MyEditor() {
-	const content: string = '<p>Hello World</p>';
-	const contents: string[] = [];
-	for (let i = 0; i < 18; i++) {
-		contents.push(content);
-	}
+	const content: string = '<p>Começo de um Trabalho...</p>';
+
 	return (
 		<EditorProvider 
 			slotBefore={<EditorToolbar />}
 			extensions={[Paging]} 
 			autofocus={true} 
 			editable={true}
-			content={contents.join('\n')}>
+			content={content}>
 			<></>
 		</EditorProvider>
 	);
