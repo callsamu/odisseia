@@ -5,9 +5,8 @@ import { EditorProvider, Extension, useCurrentEditor } from '@tiptap/react';
 import './index.css';
 import { findParentDomRefOfType, findParentNodeOfType } from 'prosemirror-utils';
 import { Attrs, DOMSerializer, Fragment, ResolvedPos, Schema } from '@tiptap/pm/model';
-import { EditorState, Plugin, TextSelection, Transaction } from '@tiptap/pm/state';
+import { EditorState, TextSelection, Transaction } from '@tiptap/pm/state';
 import { Node as NodePM } from '@tiptap/pm/model'
-import { v4 as uuid } from 'uuid';
 import { TextAlign } from '@tiptap/extension-text-align';
 import { Paragraph } from '@tiptap/extension-paragraph';
 import { Heading } from '@tiptap/extension-heading';
@@ -384,61 +383,6 @@ function isOverflown({ clientWidth, clientHeight, scrollWidth, scrollHeight }: H
   return scrollHeight > clientHeight || scrollWidth > clientWidth;
 } 
 
-const ProseMirrorUniqueID = (generator = uuid) => {
-	return new Plugin({
-		appendTransaction: (transactions, _, newState) => {
-			const tr = newState.tr;
-			let modified = false;
-
-			const set = new Set<string>();
-
-			if (transactions.some(t => t.docChanged)) {
-				tr.doc.descendants((node, pos) => {
-					if (CONTENT_NODES.includes(node.type.name)) {
-						if (!node.attrs.id) {
-							const id = generator()
-							tr.setNodeMarkup(pos, undefined, { ...node.attrs, id: id });
-							modified = true;
-						} else if (set.has(node.attrs.id)) {
-							const id = generator()
-							tr.setNodeMarkup(pos, undefined, { ...node.attrs, id: id });
-							modified = true;
-						} else {
-							set.add(node.attrs.id);
-						}
-					}
-				});
-			}
-
-			return modified ? tr : null;
-		},
-	})
-}
-
-const UniqueID: Extension = Extension.create<any>({
-	name: 'unique-id',
-	addProseMirrorPlugins() {
-		return [
-			ProseMirrorUniqueID(),
-		]
-	},
-	addGlobalAttributes() {
-		return [{
-			types: [
-				Paragraph.name,
-				Heading.name,
-			],
-			attributes: {
-				id: {
-					default: null,
-					parseHTML: (element: Element) => element.getAttribute('id'),
-					renderHTML: (attributes: any) => ({ id: attributes.id }),
-				},
-			},
-		}];
-	}
-})
-
 interface ContentStyle {
 	fontFamily: string;
 	fontSize: string;
@@ -484,7 +428,6 @@ const Paging: Extension = Extension.create<{}, PagingStorage>({
 
 	addExtensions() {
 		return [
-			UniqueID,
 			Doc,
 			Page,
 			Body,
