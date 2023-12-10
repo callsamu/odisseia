@@ -37,10 +37,10 @@ main {
 
 .tiptap {
 	padding: 2rem 0;
-
-	font-family: arial;
+	font-family: Arial;
 	font-size: 12pt;
 	line-height: 1.5;
+	text-align: justify;
 }
 
 .tiptap:focus {
@@ -60,7 +60,6 @@ main {
 
 .page-body {
 	position: relative;
-	background-color: ghostwhite;
 
 	margin-right: 1.0cm;
 	margin-bottom: 1.0cm;
@@ -91,18 +90,21 @@ main {
 	}
 }
 
-.tiptap h1,
 .tiptap h2,
-.tiptap h3,
-.tiptap h4,
-.tiptap h5,
-.tiptap h6 {
-	padding: 0;
-	margin: 0;
-}
-
 .tiptap p {
 	padding: 0;
 	margin: 0;
 }
 
+.tiptap p {
+	font-size: 12pt;
+}
+
+.tiptap h2 {
+	font-size: 14pt;
+}
+
+.tiptap p[broken=true],
+.tiptap h2[broken=true], {
+	text-align-last: justify;
+}
