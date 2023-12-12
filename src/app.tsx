@@ -195,6 +195,8 @@ class Paginator {
 			}
 		}
 
+		console.log(tr.doc.firstChild?.firstChild?.toJSON());
+
 		const body = tr.doc.firstChild?.firstChild;
 		if (!body) throw new Error('unable to get document body');
 
@@ -242,11 +244,13 @@ class Paginator {
 	}
 
 	public splitDocument(tr: Transaction, split?: ResolvedPos): Transaction {
+		console.log("++++SPLIT++++");
 		if (!split) {
 			const s = this.findSplitNodePos(tr.doc);
 			if (!s) return tr;
 			split = s;
 		}
+		console.log(split);
 
 		let newTr = this.splitPage(tr, split);
 
@@ -263,8 +267,8 @@ class Paginator {
 		let newTr = tr;
 
 		const contents: NodePM[] = [];
-		let broken = false;
 
+		let broken = false;
 		let anchorSplitPart = 0;
 
 		const parent = $pos.parent;
@@ -275,16 +279,41 @@ class Paginator {
 		} else {
 			broken = true;
 			if (newTr.selection.$head.pos > pos) anchorSplitPart = 1;
-			newTr = newTr.setNodeAttribute($pos.pos - $pos.parentOffset - 1, 'broken', true);
+
+			const parentPos = $pos.pos - $pos.parentOffset - 1;
+			newTr = newTr.setNodeAttribute(parentPos, 'broken', true);
+
 			const text = parent.textBetween($pos.parentOffset + 1, parent.nodeSize - 2);
-			const fragment = Fragment.from(this.schema.text(text));
-			contents.push(parent.copy(fragment));
+
+			const lines: LineData[] = parent.attrs.lines;
+
+			const breakIndex = lines.findIndex((l) => {
+				return l.position === $pos.parentOffset + 1
+			});
+			if (breakIndex === -1) throw new Error("Failed to find break line index");
+
+			const firstHalfLines = lines.slice(0, breakIndex);
+			const secondHalfLines = lines.slice(breakIndex);
+
+			newTr = newTr.setNodeAttribute(parentPos, 'lines', firstHalfLines);
+
+			const type = this.schema.nodes[parent.type.name];
+			const attrs = { lines: secondHalfLines };
+			contents.push(type.create(attrs, Fragment.from(this.schema.text(text))));
 		}
 
 		let factor = broken ? 1 : 0;
 		const body = $pos.node(depth - factor);
+
+		let bodyPos = 1;
+		newTr.doc.forEach(node => {
+			if (node !== newTr.doc.lastChild) {
+				bodyPos += node.nodeSize
+			}
+		});
+
 		body.forEach((node, nodePos) => {
-			if (nodePos > pos) {
+			if (bodyPos + nodePos > pos) {
 				contents.push(node);
 			}
 		});
@@ -304,14 +333,11 @@ class Paginator {
 			const selNodePos = pos + factor + 4;
 			let offset = $anchor.parentOffset - $pos.parentOffset;
 			const $newAnchor = newTr.doc.resolve(selNodePos + offset);
-			console.log("++++SPLIT++++");
 			console.log(anchorSplitPart, $anchor.pos, pos);
 			console.log(newTr.doc.nodeAt(selNodePos));
 			console.log(newTr.doc.textBetween(selNodePos, selNodePos + offset));
 			newTr = newTr.setSelection(new TextSelection($newAnchor, $newAnchor));
 		} 
-
-		console.log("BROKEN ANCHOR-SPLIT-PART", broken, anchorSplitPart);
 
 		return newTr;
 	}
