@@ -125,18 +125,18 @@ class LineBreaker {
 
 	lines(node: NodePM, style: ContentStyle): LineData[] {
 		const text = node.textContent;
-		if (text.length === 0) return [];
+		if (text.length === 0) return [{
+			size: 0,
+			position: 0,
+		}];
 
 		let cursor = 0;
 		let prevLine = 0;
 		let lineWidth = 0;
 		const lines: LineData[] = [];
-		console.log(style.weight);
 
 		const font = `${style.weight} ${style.fontSize} ${style.fontFamily}`;
 		this.measurer.setFont(font);
-		console.log(font);
-		console.log(this.measurer.ctx.font);
 
 		const blank = this.measurer.metrics(" ");
 
@@ -174,8 +174,6 @@ class LineBreaker {
 				cursor = i + 1;
 			}
 		}
-
-		console.log(lines, lineWidth);
 
 		return lines;
 	}
@@ -544,13 +542,6 @@ const Paging: Extension = Extension.create<PagingOptions, PagingStorage>({
   onUpdate(): void {
 		const { editor, storage } = this;
 		const { schema, selection, doc } = editor.state;
-
-		const elem = document.querySelector(".tiptap p");
-		if (elem) {
-			const css = getCSS(elem, 'font-size');
-			console.log(css);
-		}
-
 		let newTr = editor.state.tr;
 
 		let inserting = false;
@@ -582,6 +573,7 @@ const Paging: Extension = Extension.create<PagingOptions, PagingStorage>({
 		const measurer = new TextMeasurer();
 		const lb = new LineBreaker(measurer, rect);
 		const lines = lb.lines(content, retrieveStyleOf(content, styles));
+		console.log(lines);
 		const prevLines: LineData[] = content.attrs.lines;
 		newTr.setNodeAttribute($contentPos.pos, 'lines', lines);
 
