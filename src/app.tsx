@@ -5,7 +5,7 @@ import { EditorProvider, Extension, useCurrentEditor } from '@tiptap/react';
 import './index.css';
 import { findParentDomRefOfType, findParentNodeOfType } from 'prosemirror-utils';
 import { Attrs, DOMSerializer, Fragment, ResolvedPos, Schema } from '@tiptap/pm/model';
-import { EditorState, TextSelection, Transaction } from '@tiptap/pm/state';
+import { EditorState, Selection, TextSelection, Transaction } from '@tiptap/pm/state';
 import { Node as NodePM } from '@tiptap/pm/model'
 import { TextAlign } from '@tiptap/extension-text-align';
 import { Paragraph } from '@tiptap/extension-paragraph';
@@ -84,7 +84,7 @@ const Body = Node.create({
   },
 });
 
-const CONTENT_NODES = [Paragraph.name, Heading.name];
+const TEXT_CONTENT_NODES = [Paragraph.name, Heading.name];
 
 function getCSS(element: Element, prop: string): string {
 	return getComputedStyle(element).getPropertyValue(prop);
@@ -360,7 +360,7 @@ class Paginator {
 				return false;
 			}
 
-			if (CONTENT_NODES.includes(type)) {
+			if (TEXT_CONTENT_NODES.includes(type)) {
 				const lineHeight = retrieveStyleOf(node, this.contentStyles).lineHeight;
 				if (!lineHeight) throw new Error(`${type} line height not determined`);
 
@@ -400,6 +400,13 @@ function isOverflown({ clientWidth, clientHeight, scrollWidth, scrollHeight }: H
   return scrollHeight > clientHeight || scrollWidth > clientWidth;
 } 
 
+function parentFromPos($pos: ResolvedPos): [NodePM, ResolvedPos] {
+	return [
+		$pos.parent,
+		$pos.doc.resolve($pos.pos - $pos.parentOffset),
+	]
+}
+
 interface ContentStyle {
 	fontFamily: string;
 	fontSize: string;
@@ -432,8 +439,6 @@ function getSchemaNodeStyles(
 		ident: fromPX(getCSS(element, 'text-indent')),
 	}
 
-	console.log(styles);
-	
 	element.remove();
 	return styles;
 }
@@ -460,7 +465,10 @@ interface PagingOptions {
 }
 
 interface PagingStorage {
+	measurer: TextMeasurer;
+	dimensions: DOMRect | null;
 	previousState: EditorState | null;
+	previousSelection: Selection | null;
 	contentStyles: Map<string, ContentStyle>;
 };
 
@@ -475,6 +483,7 @@ const Paging: Extension = Extension.create<PagingOptions, PagingStorage>({
 
 	addExtensions() {
 		const { headings } = this.options;
+
 		return [
 			Doc,
 			Page,
@@ -494,14 +503,17 @@ const Paging: Extension = Extension.create<PagingOptions, PagingStorage>({
 
 	addStorage() {
 		return {
+			dimensions: null,
 			previousState: null,
+			previousSelection: null,
 			contentStyles: new Map(),
+			measurer: new TextMeasurer(),
 		}
 	},
 
 	addGlobalAttributes() {
 		return [{
-			types: CONTENT_NODES,
+			types: TEXT_CONTENT_NODES,
 			attributes: {
 				broken: {
 					default: null,
@@ -526,7 +538,7 @@ const Paging: Extension = Extension.create<PagingOptions, PagingStorage>({
 		const parent = document.querySelector(".tiptap");
 		if (!parent) throw new Error('Failed to get editor element');
 
-		for (const type of CONTENT_NODES) {
+		for (const type of TEXT_CONTENT_NODES) {
 			if (type === Heading.name) {
 				for (const level of this.options.headings) {
 					const attrs = { level };
@@ -548,26 +560,83 @@ const Paging: Extension = Extension.create<PagingOptions, PagingStorage>({
 		if (!bodyElement) throw new Error('Failed to get body element');
 
 		const dimensions = bodyElement.getBoundingClientRect();
-		const measurer = new TextMeasurer();
-		const lb = new LineBreaker(measurer, dimensions);
+		storage.dimensions = dimensions;
 
+		const lb = new LineBreaker(storage.measurer, dimensions);
 		let newTr = editor.state.tr;
 
 		editor.state.doc.descendants((node, pos) => {
-			if (CONTENT_NODES.includes(node.type.name)) {
+			if (TEXT_CONTENT_NODES.includes(node.type.name)) {
 				const style = retrieveStyleOf(node, storage.contentStyles);
 				const lines = lb.lines(node, style);
 				newTr = newTr.setNodeAttribute(pos, "lines", lines);
 			}
 		});
-
+			
+		storage.previousState = editor.state;
 		const newState = editor.state.apply(newTr);
 		editor.view.updateState(newState);
 	},
 
+	onTransaction({ transaction: tr }) {
+		const { 
+			measurer, 
+			dimensions,
+			previousState,
+			previousSelection,
+		} = this.storage;
+
+		let newTr = this.editor.state.tr;
+
+		if (
+			dimensions &&
+			tr.docChanged &&
+			previousState &&
+			previousSelection &&
+			!tr.getMeta("paginating")  &&
+			!tr.getMeta("counting-lines")
+		) {
+			newTr = newTr.setMeta("counting-lines", true);
+
+			let $anchor!: ResolvedPos;
+			if (tr.selection.$anchor.pos < previousSelection.$anchor.pos) {
+				$anchor = tr.selection.$anchor;
+			} else {
+				$anchor = previousSelection.$anchor;
+			}
+
+			let $head!: ResolvedPos;
+			if (tr.doc.nodeSize === previousState.doc.nodeSize) {
+				$head = previousSelection.$head;
+			} else {
+				$head = tr.selection.$head;
+			}
+
+			const [, $anchorContentPos] = parentFromPos($anchor);
+			const [, $headContentPos] = parentFromPos($head);
+
+			const lb = new LineBreaker(measurer, dimensions);
+
+			tr.doc.nodesBetween($anchorContentPos.pos, $headContentPos.pos, (node, pos) => {
+				if (TEXT_CONTENT_NODES.includes(node.type.name)) {
+					console.log(node.type.name, node.textContent);
+					const style = retrieveStyleOf(node, this.storage.contentStyles);
+					const lines = lb.lines(node, style);
+					console.log(node.type.name, pos, node.textContent, lines);
+					newTr = newTr.setNodeAttribute(pos, "lines", lines);
+				}
+			});
+
+			this.editor.view.dispatch(newTr);
+		}
+
+		this.storage.previousSelection = tr.selection;
+	},
+
   onUpdate(): void {
+		console.log("UPDATE");
 		const { editor, storage } = this;
-		const { schema, selection, doc } = editor.state;
+		const { schema, selection } = editor.state;
 		let newTr = editor.state.tr;
 
 		let inserting = false;
@@ -578,37 +647,36 @@ const Paging: Extension = Extension.create<PagingOptions, PagingStorage>({
 			contentStyles: styles,
 		} = storage;
 
-		if (prev) {
-			if (selection.$anchor.node(2) && prev.selection.$anchor.node(2))
-				deleting = newTr.doc.nodeSize < prev.doc.nodeSize;
-		}
-
-		const { $anchor } = selection;
-		const content = $anchor.parent;
-		const $contentPos = doc.resolve($anchor.pos - $anchor.parentOffset - 1);
-
 		const domAtPos = editor.view.domAtPos.bind(editor.view);
 		const { node: body } = findParentNodeOfType(schema.nodes['body'])(selection) ?? {};
 		if (!body) throw new Error('Failed to get body element');
 
+		if (prev && prev.doc.nodeSize !== editor.state.doc.nodeSize) {
+			if (selection.$anchor.node(2) && prev.selection.$anchor.node(2)) {
+				deleting = newTr.doc.nodeSize < prev.doc.nodeSize;
+			}
+
+			const [anchorContent, $anchorContentPos] = parentFromPos(selection.$anchor);
+			console.log("BROKEN?", anchorContent.attrs.broken);
+			console.log("LAST CHILD?", anchorContent === body.lastChild);
+			if (anchorContent.attrs.broken && anchorContent === body.lastChild) {
+				const oldNode = prev.doc.nodeAt($anchorContentPos.pos - 1);
+				console.log("OLD NODE:", oldNode);
+				inserting = oldNode !== null && oldNode.eq(prev.selection.$anchor.parent);
+				console.log("IS INSERTING?", inserting);
+			}
+		}
+
 		const bodyDOM = findParentDomRefOfType(schema.nodes['body'], domAtPos)(selection);
 		const bodyElement = bodyDOM as HTMLElement;
 		const rect = bodyElement.getBoundingClientRect();
-		inserting = isOverflown(bodyElement);
+		storage.dimensions = rect;
+		inserting = inserting || isOverflown(bodyElement);
 
-		const measurer = new TextMeasurer();
-		const lb = new LineBreaker(measurer, rect);
-		const lines = lb.lines(content, retrieveStyleOf(content, styles));
-		console.log(lines);
-		const prevLines: LineData[] = content.attrs.lines;
-		newTr.setNodeAttribute($contentPos.pos, 'lines', lines);
-
-		inserting = inserting || 
-			prevLines.length > lines.length && 
-			body.lastChild === content &&
-			content.attrs.broken;
+		const lb = new LineBreaker(storage.measurer, rect);
 
 		if (inserting || deleting) {
+			console.log("REPAGINATING", inserting, deleting);
 			const paginator = new Paginator(
 				lb,
 				editor.state.schema,
@@ -616,14 +684,16 @@ const Paging: Extension = Extension.create<PagingOptions, PagingStorage>({
 				styles
 			);
 
+			newTr = newTr.setMeta("paginating", true);
 			newTr = paginator.joinDocument(newTr);
 			newTr = paginator.splitDocument(newTr);
 			newTr = newTr.scrollIntoView();
+
+			storage.previousState = editor.state;
+			editor.view.dispatch(newTr);
 		}
 
 		storage.previousState = editor.state;
-		const newState = editor.state.apply(newTr);
-		editor.view.updateState(newState);
 	}
 });
 
@@ -660,7 +730,7 @@ function EditorToolbar() {
 					disabled={!editor.can().toggleBold()}
 					type={editor.isActive("bold") ? 'primary' : 'default'}
 				>
-					Bold	
+					Negrito
 				</Button>
 			</ButtonGroup>
 		</Space>
@@ -668,7 +738,12 @@ function EditorToolbar() {
 }
 
 function MyEditor() {
-	const content: string = '<p>Começo de um Trabalho...</p>';
+	const content: string = '<p>Começo de um Trabalho Muito Bosta...</p>';
+	const contents: string[] = [];
+
+	for (let i = 0; i < 17; i++) {
+		contents.push(content);
+	}
 
 	return (
 		<EditorProvider 
@@ -676,7 +751,7 @@ function MyEditor() {
 			extensions={[Paging]} 
 			autofocus={true} 
 			editable={true}
-			content={content}>
+			content={contents.join("\n")}>
 			<></>
 		</EditorProvider>
 	);
