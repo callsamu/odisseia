@@ -123,6 +123,6 @@ main {
 }
 
 .page p[broken=true],
-.page h2[broken=true], {
+.page h2[broken=true] {
 	text-align-last: justify;
 }
