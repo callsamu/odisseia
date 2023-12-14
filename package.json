@@ -3,15 +3,15 @@
   "version": "0.0.1",
   "description": "",
   "scripts": {
-		"dev": "turbo dev",
-		"build": "turbo build"
-	},
+    "dev": "turbo dev",
+    "build": "turbo build"
+  },
   "workspaces": [
     "apps/client"
   ],
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "turborepo": "^0.0.1"
+    "turbo": "^1.11.2"
   }
 }
