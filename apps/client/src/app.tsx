@@ -717,11 +717,18 @@ function EditorToolbar() {
 			</ButtonGroup>
 			<ButtonGroup>
 				<Button 
+					onClick={() => editor.chain().focus().unsetTextAlign().run()}
+					disabled={!editor.can().unsetTextAlign()}
+					type={editor.isActive({ textAlign: 'justify' }) ? 'primary' : 'default'}
+				>
+					Normal
+				</Button>
+				<Button 
 					onClick={() => editor.chain().focus().setTextAlign('center').run()}
 					disabled={!editor.can().setTextAlign('center')}
 					type={editor.isActive({ textAlign: 'center' }) ? 'primary' : 'default'}
 				>
-					Centralizar
+					Centralizado
 				</Button>
 			</ButtonGroup>
 			<ButtonGroup>
