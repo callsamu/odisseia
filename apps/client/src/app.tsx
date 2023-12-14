@@ -738,12 +738,7 @@ function EditorToolbar() {
 }
 
 function MyEditor() {
-	const content: string = '<p>Começo de um Trabalho Muito Bosta...</p>';
-	const contents: string[] = [];
-
-	for (let i = 0; i < 17; i++) {
-		contents.push(content);
-	}
+	const content: string = '<p>Começo de um Trabalho...</p>';
 
 	return (
 		<EditorProvider 
@@ -751,7 +746,7 @@ function MyEditor() {
 			extensions={[Paging]} 
 			autofocus={true} 
 			editable={true}
-			content={contents.join("\n")}>
+			content={content}>
 			<></>
 		</EditorProvider>
 	);
