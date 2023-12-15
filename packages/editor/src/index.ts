@@ -18,6 +18,20 @@ import { DefaultNorm } from './norms/DefaultNorm';
 
 const TEXT_CONTENT_NODES = [Title.name, NormParagraph.name];
 
+function textStyle(node: Node, norm: Norm): TextStyles {
+	switch (node.type.name) {
+		case Title.name: {
+			return norm.title;
+		}
+		case NormParagraph.name: {
+			return norm.paragraph;
+		}
+		default: {
+			throw new Error(`Unknown text content node: ${node.type.name}`);
+		}
+	}
+}
+
 class TextMeasurer {
 	canvas: HTMLCanvasElement;
 	ctx: CanvasRenderingContext2D;
@@ -43,6 +57,7 @@ interface LineData {
 
 class LineBreaker {
 	constructor(
+		private norm: Norm,
 		private measurer: TextMeasurer,
 		private bounds: DOMRect,
 	) {}
@@ -59,7 +74,7 @@ class LineBreaker {
 		let lineWidth = 0;
 		const lines: LineData[] = [];
 
-		const style: TextStyles = node.attrs.style;
+		const style = textStyle(node, this.norm);
 		if (!style) throw new Error("text style not found");
 
 		const size = fontSizeInPx(style);
@@ -110,6 +125,7 @@ class LineBreaker {
 
 class Paginator {
 	constructor(
+		private norm: Norm,
 		private lb: LineBreaker,
 		private schema: Schema,
 		private bodyDimensions: DOMRect,
@@ -288,7 +304,7 @@ class Paginator {
 			}
 
 			if (TEXT_CONTENT_NODES.includes(type)) {
-				const style: TextStyles = node.attrs.style;
+				const style = textStyle(node, this.norm);
 				if (!style) throw new Error(`${type} style not determined`);
 
 				const lines: LineData[] = node.attrs.lines;
@@ -324,6 +340,7 @@ class Paginator {
 		return split ? split : null;
 	}
 }
+
 
 function isOverflown({ clientWidth, clientHeight, scrollWidth, scrollHeight }: HTMLElement) {
   return scrollHeight > clientHeight || scrollWidth > clientWidth;
@@ -409,7 +426,12 @@ export const PaginatorExtension: Extension = Extension.create<PaginatorOptions, 
 		const dimensions = bodyElement.getBoundingClientRect();
 		storage.dimensions = dimensions;
 
-		const lb = new LineBreaker(storage.measurer, dimensions);
+		const lb = new LineBreaker(
+			this.options.norm, 
+			storage.measurer, 
+			dimensions
+		);
+
 		let newTr = editor.state.tr;
 
 		editor.state.doc.descendants((node, pos) => {
@@ -461,7 +483,7 @@ export const PaginatorExtension: Extension = Extension.create<PaginatorOptions, 
 			const [, $anchorContentPos] = parentFromPos($anchor);
 			const [, $headContentPos] = parentFromPos($head);
 
-			const lb = new LineBreaker(measurer, dimensions);
+			const lb = new LineBreaker(this.options.norm, measurer, dimensions);
 
 			tr.doc.nodesBetween($anchorContentPos.pos, $headContentPos.pos, (node, pos) => {
 				if (TEXT_CONTENT_NODES.includes(node.type.name)) {
@@ -517,11 +539,12 @@ export const PaginatorExtension: Extension = Extension.create<PaginatorOptions, 
 		storage.dimensions = rect;
 		inserting = inserting || isOverflown(bodyElement);
 
-		const lb = new LineBreaker(storage.measurer, rect);
+		const lb = new LineBreaker(this.options.norm, storage.measurer, rect);
 
 		if (inserting || deleting) {
 			console.log("REPAGINATING", inserting, deleting);
 			const paginator = new Paginator(
+				this.options.norm,
 				lb,
 				editor.state.schema,
 				rect,

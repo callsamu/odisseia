@@ -1,6 +1,5 @@
-import { Attrs } from '@tiptap/pm/model';
+import { mergeAttributes } from '@tiptap/core';
 import { Paragraph } from '@tiptap/extension-paragraph';
-import { ParagraphStyles } from '../norms/styles';
 import { clear } from '../norms/utils';
 import { DefaultNorm } from '../norms/DefaultNorm';
 import { Norm } from '../norms/Norm';
@@ -12,29 +11,22 @@ interface NormParagraphOptions {
 export const NormParagraph = Paragraph.extend<NormParagraphOptions>({
 	addOptions() {
 		return {
-			...this.parent?.(),
 			norm: DefaultNorm,
 		};
 	},
 
-	addAttributes() {
-		return {
-			style: {
-				default: this.options.norm.paragraph,
-				parseHTML: () => this.options.norm.paragraph,
-				renderHTML: (attrs: Attrs) => {
-					const style: ParagraphStyles = attrs.style;
-					const styleString = clear(`
-						line-height: ${style.lineHeight}
-						font-size: ${style.font.size}pt
-						font-weight: ${style.font.weight}
-						font-family: ${style.font.family}
-					`);
-					return { style: styleString };
-				}
-			},
-		};
+	renderHTML({ HTMLAttributes }) {
+		const { paragraph } = this.options.norm;
+
+		const style = { style: clear(`
+			line-height: ${paragraph.lineHeight}
+			font-size: ${paragraph.font.size}pt
+			font-weight: ${paragraph.font.weight}
+			font-family: ${paragraph.font.family}
+		`)}
+
+		const attrs = mergeAttributes(style, HTMLAttributes);
+
+		return ['p', attrs, 0]
 	}
 })
-
-

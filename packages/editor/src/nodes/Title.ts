@@ -67,7 +67,21 @@ export const Title = Node.create<TitleOptions>({
   },
 
   renderHTML({ HTMLAttributes }) {
-    return [`h1`, mergeAttributes(this.options.HTMLAttributes, HTMLAttributes), 0]
+		const { title } = this.options.norm;
+
+		const style = { style: clear(`
+			line-height: ${title.lineHeight}
+			font-size: ${title.font.size}pt
+			font-weight: ${title.font.weight}
+			font-family: ${title.font.family}
+			text-align: ${title.textAlign}
+			text-transform: ${title.transform}
+		`)};
+
+		const HTMLAttrs = this.options.HTMLAttributes;
+		const attrs = mergeAttributes(style, HTMLAttrs, HTMLAttributes);
+
+    return ['h1', attrs, 0]
   },
 
   addCommands() {

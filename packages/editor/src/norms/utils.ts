@@ -2,6 +2,7 @@ import { PageBodyStyles, PageStyles, TextStyles } from "./styles";
 
 export function clear(str: string): string {
 	return str.
+		trim().
 		split('\n').
 		map(line => line.trim()).
 		join(";");

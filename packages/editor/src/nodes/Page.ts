@@ -1,7 +1,5 @@
 import { Node, mergeAttributes } from '@tiptap/core';
-import { PageStyles } from '../norms/styles';
 import { clear } from '../norms/utils';
-import { Attrs } from '@tiptap/pm/model';
 import { DefaultNorm } from '../norms/DefaultNorm';
 import { Norm } from '../norms/Norm';
 
@@ -27,23 +25,6 @@ export const Page = Node.create<PageOptions>({
   group: 'page',
   content: 'body',
 
-	addAttributes() {
-		return {
-			style: {
-				default: this.options.norm.page,
-				parseHTML: () => this.options.norm.page,
-				renderHTML: (attrs: Attrs) => {
-					const style: PageStyles = attrs.style;
-					const styleString = clear(`
-						width: ${style.width}cm
-						height: ${style.height}cm
-					`);
-					return { style: styleString };
-				}
-			},
-		}
-	},
-
   parseHTML() {
     return [
       { 
@@ -56,7 +37,17 @@ export const Page = Node.create<PageOptions>({
   },
 
   renderHTML({ HTMLAttributes }) {
-    return ['div', mergeAttributes(this.options.HTMLAttributes, HTMLAttributes), 0]
+		const { page } = this.options.norm;
+
+		const style = { style: clear(`
+			width: ${page.width}cm
+			height: ${page.height}cm
+		`)};
+
+		const HTMLAttrs = this.options.HTMLAttributes;
+		const attrs = mergeAttributes(style, HTMLAttrs, HTMLAttributes);
+
+    return ['div', attrs, 0]
   },
 });
 
