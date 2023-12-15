@@ -22,6 +22,7 @@ export interface TextStyles {
 	font: Font;
 	lineHeight: number;
 	textAlign: string;
+	transform?: string;
 }
 
 export interface ParagraphStyles extends TextStyles {}

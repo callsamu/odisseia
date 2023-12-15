@@ -12,6 +12,16 @@ export function ABNT(scale: number = 1): Norm {
 			marginTop: 3 * scale,
 			marginBottom: 2 * scale,
 		},
+		title: {
+			lineHeight: 1.5,
+			textAlign: "justify",
+			transform: "uppercase",
+			font: {
+				size: 14 * scale,
+				weight: 'bold',
+				family: 'Times New Roman',
+			},
+		},
 		paragraph: {
 			lineHeight: 1.5,
 			textAlign: "justify",
