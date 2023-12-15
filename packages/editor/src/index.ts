@@ -1,5 +1,5 @@
 import { Extension } from '@tiptap/core';
-import { Document, Page, Body, NormParagraph } from './nodes/';
+import { Document, Page, Body, Title, NormParagraph } from './nodes/';
 
 import { TextStyles } from './norms/styles';
 
@@ -11,11 +11,12 @@ import { findParentDomRefOfType, findParentNodeOfType } from 'prosemirror-utils'
 
 import { Text } from '@tiptap/extension-text';
 import { Bold } from '@tiptap/extension-bold';
+
 import { fontSizeInPx, lineHeightInPx } from './norms/utils';
 import { Norm } from './norms/Norm';
 import { DefaultNorm } from './norms/DefaultNorm';
 
-const TEXT_CONTENT_NODES = [NormParagraph.name];
+const TEXT_CONTENT_NODES = [Title.name, NormParagraph.name];
 
 class TextMeasurer {
 	canvas: HTMLCanvasElement;
@@ -358,6 +359,7 @@ export const PaginatorExtension: Extension = Extension.create<PaginatorOptions, 
 			Document,
 			Page.configure({ norm: this.options.norm }),
 			Body.configure({ norm: this.options.norm }),
+			Title.configure({ norm: this.options.norm }),
 			NormParagraph.configure({ norm: this.options.norm }),
 			Text,
 			Bold,

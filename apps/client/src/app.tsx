@@ -18,6 +18,15 @@ function EditorToolbar() {
 		<Space className="editor-options">
 			<ButtonGroup>
 				<Button 
+					onClick={() => editor.chain().focus().toggleTitle().run()}
+					disabled={!editor.can().toggleTitle()}
+					type={editor.isActive("title") ? 'primary' : 'default'}
+				>
+					Título
+				</Button>
+			</ButtonGroup>
+			<ButtonGroup>
+				<Button 
 					onClick={() => editor.chain().focus().toggleBold().run()}
 					disabled={!editor.can().toggleBold()}
 					type={editor.isActive("bold") ? 'primary' : 'default'}
