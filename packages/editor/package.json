@@ -1,0 +1,21 @@
+{
+  "name": "odisseia-editor",
+  "main": "index.ts",
+  "types": "index.ts",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {},
+  "dependencies": {
+    "@tiptap/extension-bold": "^2.1.13",
+    "@tiptap/extension-heading": "^2.1.13",
+    "@tiptap/extension-italic": "^2.1.13",
+    "@tiptap/extension-paragraph": "^2.1.13",
+    "@tiptap/extension-text-align": "^2.1.13",
+    "@tiptap/pm": "^2.1.12",
+    "tiptap": "^1.32.2"
+  },
+  "devDependencies": {
+    "typescript": "^5.2.2"
+  }
+}

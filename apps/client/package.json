@@ -9,19 +9,11 @@
 		"preview": "vite preview"
 	},
   "dependencies": {
-    "@tiptap/extension-bold": "^2.1.13",
-    "@tiptap/extension-color": "^2.1.12",
-    "@tiptap/extension-heading": "^2.1.13",
-    "@tiptap/extension-italic": "^2.1.13",
-    "@tiptap/extension-paragraph": "^2.1.13",
-    "@tiptap/extension-text-align": "^2.1.13",
-    "@tiptap/extension-text-style": "^2.1.12",
-    "@tiptap/pm": "^2.1.12",
     "@tiptap/react": "^2.1.12",
-    "@tiptap/starter-kit": "^2.1.12",
     "antd": "^5.11.5",
     "preact": "^10.19.2",
-    "prosemirror-utils": "^1.2.1-0"
+
+		"odisseia-editor": "*"
   },
 	"devDependencies": {
     "vite": "^5.0.0",

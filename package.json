@@ -7,7 +7,9 @@
     "build": "turbo build"
   },
   "workspaces": [
-    "apps/client"
+    "apps/client",
+		"apps/server",
+		"packages/editor"
   ],
   "author": "",
   "license": "ISC",
