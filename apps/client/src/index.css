@@ -59,70 +59,11 @@ main {
 }
 
 .page-body {
-	position: relative;
-
-	margin-right: 1.0cm;
-	margin-bottom: 1.0cm;
-
-	margin-left: 1.5cm;
-	margin-top: 1.5cm;
-
 	padding: 0;
-
-	width: 8.0cm;
-	height: 12.35cm;
-}
-
-@media screen and (max-width: 600px) {
-	.page {
-		width: 7.875cm;
-		height: 11.1375cm;
-	}
-	.page-body {
-		margin-right: 0.75cm;
-		margin-bottom: 0.75cm;
-		margin-left: 1.25cm;
-		margin-top: 1.25cm;
-
-		width: 5.875cm;
-		height: 9.1124cmm 
-	}
-}
-
-@media print {
-	.page {
-		width: 21cm;
-		height: 29.7cm;
-		box-shadow: none;
-		page-break-after: always;
-	}
-
-	.page-body {
-		margin-right: 2cm;
-		margin-bottom: 2cm;
-		margin-left: 3cm;
-		margin-top: 3cm;
-
-		width: calc(21cm - 2cm - 3cm);
-		height: calc(29.7cm - 2cm - 3cm);
-	}
 }
 
 .page h2,
 .page p {
 	padding: 0;
 	margin: 0;
-}
-
-.page p {
-	font-size: 12pt;
-}
-
-.page h2 {
-	font-size: 14pt;
-}
-
-.page p[broken=true],
-.page h2[broken=true] {
-	text-align-last: justify;
 }

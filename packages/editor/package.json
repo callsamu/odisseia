@@ -1,7 +1,7 @@
 {
   "name": "odisseia-editor",
-  "main": "index.ts",
-  "types": "index.ts",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
   "private": true,
   "version": "0.0.1",
   "type": "module",
