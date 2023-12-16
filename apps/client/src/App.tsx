@@ -15,7 +15,9 @@ function MarkButton(props: MarkButtonProps) {
 	const active = editor.isActive(name);
 
 	return (
-		<button class={`flex items-center btn btn-sm ${active ? 'btn-primary' : 'btn-ghost'}`}>
+		<button 
+			onClick={() => editor.chain().focus().toggleMark(name).run()}
+			class={`flex items-center btn btn-sm ${active ? 'btn-primary' : 'btn-ghost'}`}>
 			{children}
 		</button>
 	);
