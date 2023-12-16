@@ -23,6 +23,7 @@ export const NormParagraph = Paragraph.extend<NormParagraphOptions>({
 			font-size: ${paragraph.font.size}pt
 			font-weight: ${paragraph.font.weight}
 			font-family: ${paragraph.font.family}
+			text-align: ${paragraph.textAlign}
 		`)}
 
 		const attrs = mergeAttributes(style, HTMLAttributes);
