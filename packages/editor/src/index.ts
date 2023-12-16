@@ -16,6 +16,7 @@ import { fontSizeInPx, lineHeightInPx } from './norms/utils';
 import { Norm } from './norms/Norm';
 import { DefaultNorm } from './norms/DefaultNorm';
 import { ABNT } from './norms/ABNT';
+import Italic from '@tiptap/extension-italic';
 
 const TEXT_CONTENT_NODES = [Title.name, NormParagraph.name];
 
@@ -381,6 +382,7 @@ export const PaginatorExtension: Extension = Extension.create<PaginatorOptions, 
 			NormParagraph.configure({ norm: this.options.norm }),
 			Text,
 			Bold,
+			Italic,
 		];
 	},
 
