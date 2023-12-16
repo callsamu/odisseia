@@ -1,0 +1,38 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html {
+	width: 100%;
+	height: 100%;
+}
+
+body, main {
+	width: 100%;
+	height: 100%;
+	background-color: lightgray;
+
+	margin: 0;
+	padding: 0;
+}
+
+.tiptap {
+	padding: 1rem 0;
+}
+
+.tiptap:focus {
+	outline: none;
+}
+
+.page {
+	margin: 1rem auto;
+	background-color: white;
+	box-shadow: 0 0 10px 0 rgba(0, 0, 0, 0.2);
+	overflow: hidden;
+}
+
+.page h1,
+.page p {
+	padding: 0;
+	margin: 0;
+}
