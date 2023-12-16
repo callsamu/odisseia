@@ -38,6 +38,8 @@ function App() {
 		let scale!: number;
 		const w = window.innerWidth;
 
+		container.spellcheck = false;
+
 		if (w < 768) {
 			scale = 0.4;
 		} else if (w < 1024) {
