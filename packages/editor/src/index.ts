@@ -15,6 +15,7 @@ import { Bold } from '@tiptap/extension-bold';
 import { fontSizeInPx, lineHeightInPx } from './norms/utils';
 import { Norm } from './norms/Norm';
 import { DefaultNorm } from './norms/DefaultNorm';
+import { ABNT } from './norms/ABNT';
 
 const TEXT_CONTENT_NODES = [Title.name, NormParagraph.name];
 
@@ -447,6 +448,8 @@ export const PaginatorExtension: Extension = Extension.create<PaginatorOptions, 
 	},
 
 	onTransaction({ transaction: tr }) {
+		console.log("====TRANSACTION====");
+		console.log("STEPS:", tr.steps);
 		const { 
 			measurer, 
 			dimensions,
@@ -454,13 +457,16 @@ export const PaginatorExtension: Extension = Extension.create<PaginatorOptions, 
 			previousSelection,
 		} = this.storage;
 
-		let newTr = this.editor.state.tr;
+		const { editor } = this;
+
+		let newTr = editor.state.tr;
 
 		if (
 			dimensions &&
 			tr.docChanged &&
 			previousState &&
 			previousSelection &&
+			!editor.view.composing &&
 			!tr.getMeta("paginating")  &&
 			!tr.getMeta("counting-lines")
 		) {
@@ -501,10 +507,13 @@ export const PaginatorExtension: Extension = Extension.create<PaginatorOptions, 
 	},
 
   onUpdate(): void {
-		console.log("UPDATE");
+		console.log("=====UPDATE=====");
 		const { editor, storage } = this;
 		const { schema, selection } = editor.state;
+
 		let newTr = editor.state.tr;
+		console.log("COMPOSING", editor.view.composing);
+		console.log("DOC SIZE:", editor.state.doc.nodeSize);
 
 		let inserting = false;
 		let deleting = false;
@@ -538,6 +547,7 @@ export const PaginatorExtension: Extension = Extension.create<PaginatorOptions, 
 		const rect = bodyElement.getBoundingClientRect();
 		storage.dimensions = rect;
 		inserting = inserting || isOverflown(bodyElement);
+		console.log("OVERFLOWING?", isOverflown(bodyElement));
 
 		const lb = new LineBreaker(this.options.norm, storage.measurer, rect);
 
@@ -562,3 +572,5 @@ export const PaginatorExtension: Extension = Extension.create<PaginatorOptions, 
 		storage.previousState = editor.state;
 	}
 });
+
+export { ABNT };
