@@ -1,23 +1,27 @@
 import { Show, createSignal, onCleanup, onMount } from 'solid-js';
-import type { JSX } from 'solid-js';
+import type { Accessor, JSX } from 'solid-js';
 
 import { Editor } from '@tiptap/core';
 import { PaginatorExtension, ABNT } from 'odisseia-editor';
 
 interface MarkButtonProps {
 	name: string;
-	editor: Editor;
+	editor: Accessor<Editor | null>;
 	children: JSX.Element;
 }
 
 function MarkButton(props: MarkButtonProps) {
 	const { name, editor, children } = props;
-	const active = editor.isActive(name);
+
+	const active = () => editor()!.isActive(name);
 
 	return (
 		<button 
-			onClick={() => editor.chain().focus().toggleMark(name).run()}
-			class={`flex items-center btn btn-sm ${active ? 'btn-primary' : 'btn-ghost'}`}>
+			onClick={() => editor()!.chain().focus().toggleMark(name).run()}
+			class={`
+				flex items-center btn btn-sm 
+				${active() ? 'btn-primary text-base-100' : 'btn-ghost'}
+			`}>
 			{children}
 		</button>
 	);
@@ -74,10 +78,10 @@ function App() {
 								Título
 							</option>
 						</select>
-						<MarkButton name="bold" editor={editor()!}>
+						<MarkButton name="bold" editor={editor}>
 							<b>B</b>
 						</MarkButton>
-						<MarkButton name="italic" editor={editor()!}>
+						<MarkButton name="italic" editor={editor}>
 							<i>I</i>
 						</MarkButton>
 				</header>
