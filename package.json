@@ -8,7 +8,7 @@
   },
   "workspaces": [
     "apps/client",
-		"apps/server",
+		"apps/editor-tester",
 		"packages/editor"
   ],
   "author": "",

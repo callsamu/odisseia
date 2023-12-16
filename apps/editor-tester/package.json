@@ -1,5 +1,5 @@
 {
-  "name": "odisseia-client",
+  "name": "odisseia-editor-tester",
   "private": true,
   "version": "0.0.1",
   "type": "module",
@@ -12,7 +12,6 @@
     "@tiptap/react": "^2.1.12",
     "antd": "^5.11.5",
     "preact": "^10.19.2",
-
 		"odisseia-editor": "*"
   },
 	"devDependencies": {
