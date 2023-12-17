@@ -57,6 +57,7 @@ export const Body = Node.create<BodyOptions>({
 			margin-bottom: ${body.marginBottom}cm
 			width: ${body.width}cm
 			height: ${body.height}cm
+			overflow-y: hidden
 		`)};
 
 		const HTMLAttrs = this.options.HTMLAttributes;

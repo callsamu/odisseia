@@ -19,10 +19,11 @@ export interface Font {
 }
 
 export interface TextStyles {
-	font: Font;
 	lineHeight: number;
 	textAlign: string;
+	spacing: number; // in em
 	transform?: string;
+	font: Font;
 }
 
 export interface ParagraphStyles extends TextStyles {}

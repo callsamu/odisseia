@@ -76,6 +76,7 @@ export const Title = Node.create<TitleOptions>({
 			font-family: ${title.font.family}
 			text-align: ${title.textAlign}
 			text-transform: ${title.transform}
+			padding-bottom: ${title.spacing * title.lineHeight}em
 		`)};
 
 		const HTMLAttrs = this.options.HTMLAttributes;

@@ -24,6 +24,7 @@ export const NormParagraph = Paragraph.extend<NormParagraphOptions>({
 			font-weight: ${paragraph.font.weight}
 			font-family: ${paragraph.font.family}
 			text-align: ${paragraph.textAlign}
+			padding-bottom: ${paragraph.spacing * paragraph.lineHeight}em
 		`)}
 
 		const attrs = mergeAttributes(style, HTMLAttributes);

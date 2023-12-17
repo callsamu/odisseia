@@ -312,6 +312,7 @@ class Paginator {
 				const lines: LineData[] = node.attrs.lines;
 				const lheight = lineHeightInPx(style);
 				console.log("LHEIGHT: ", lheight);
+
 				const nodeHeight = lheight * lines.length;
 
 				if (height + nodeHeight > this.bodyDimensions.height) {
@@ -331,7 +332,7 @@ class Paginator {
 					
 				}
 
-				height += nodeHeight;
+				height += nodeHeight + style.spacing * lheight;
 
 				return false;
 			}

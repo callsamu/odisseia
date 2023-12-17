@@ -16,6 +16,7 @@ export function ABNT(scale: number = 1): Norm {
 			lineHeight: 1.5,
 			textAlign: "justify",
 			transform: "uppercase",
+			spacing: 1,
 			font: {
 				size: 14 * scale,
 				weight: 'bold',
@@ -30,6 +31,7 @@ export function ABNT(scale: number = 1): Norm {
 				weight: 'normal',
 				family: 'Times New Roman',
 			},
+			spacing: 1,
 		},
 	};
 };
