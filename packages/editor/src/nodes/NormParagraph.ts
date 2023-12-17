@@ -1,6 +1,6 @@
 import { mergeAttributes } from '@tiptap/core';
 import { Paragraph } from '@tiptap/extension-paragraph';
-import { clear } from '../norms/utils';
+import { textCSS } from '../norms/utils';
 import { DefaultNorm } from '../norms/DefaultNorm';
 import { Norm } from '../norms/Norm';
 
@@ -18,14 +18,7 @@ export const NormParagraph = Paragraph.extend<NormParagraphOptions>({
 	renderHTML({ HTMLAttributes }) {
 		const { paragraph } = this.options.norm;
 
-		const style = { style: clear(`
-			line-height: ${paragraph.lineHeight}
-			font-size: ${paragraph.font.size}pt
-			font-weight: ${paragraph.font.weight}
-			font-family: ${paragraph.font.family}
-			text-align: ${paragraph.textAlign}
-			padding-bottom: ${paragraph.spacing * paragraph.lineHeight}em
-		`)}
+		const style = { style: textCSS(paragraph) };
 
 		const attrs = mergeAttributes(style, HTMLAttributes);
 

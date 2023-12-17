@@ -1,9 +1,7 @@
 import { mergeAttributes, Node } from '@tiptap/core'
 import { Norm } from '../norms/Norm'
 import { DefaultNorm } from '../norms/DefaultNorm'
-import { Attrs } from '@tiptap/pm/model'
-import { TextStyles } from '../norms/styles'
-import { clear } from '../norms/utils'
+import { textCSS } from '../norms/utils'
 
 export interface TitleOptions {
 	norm: Norm
@@ -41,25 +39,6 @@ export const Title = Node.create<TitleOptions>({
 
   defining: true,
 
-  addAttributes() {
-    return {
-			style: {
-				default: this.options.norm.title,
-				parseHTML: () => this.options.norm.title,
-				renderHTML: (attrs: Attrs) => {
-					const style: TextStyles = attrs.style;
-					const styleString = clear(`
-						line-height: ${style.lineHeight}
-						font-size: ${style.font.size}pt
-						font-weight: ${style.font.weight}
-						font-family: ${style.font.family}
-					`);
-					return { style: styleString };
-				}
-			}
-    }
-  },
-
   parseHTML() {
     return [{
 			tag: 'h1',
@@ -69,15 +48,7 @@ export const Title = Node.create<TitleOptions>({
   renderHTML({ HTMLAttributes }) {
 		const { title } = this.options.norm;
 
-		const style = { style: clear(`
-			line-height: ${title.lineHeight}
-			font-size: ${title.font.size}pt
-			font-weight: ${title.font.weight}
-			font-family: ${title.font.family}
-			text-align: ${title.textAlign}
-			text-transform: ${title.transform}
-			padding-bottom: ${title.spacing * title.lineHeight}em
-		`)};
+		const style = { style: textCSS(title) };
 
 		const HTMLAttrs = this.options.HTMLAttributes;
 		const attrs = mergeAttributes(style, HTMLAttrs, HTMLAttributes);

@@ -23,3 +23,15 @@ export function bodyWidthInCm(page: PageStyles, body: PageBodyStyles): number {
 export function bodyHeightInCm(page: PageStyles, body: PageBodyStyles): number {
 	return page.height - body.marginTop - body.marginBottom;
 }
+
+export function textCSS(style: TextStyles): string {
+	return clear(`
+		line-height: ${style.lineHeight}
+		font-size: ${style.font.size}pt
+		font-weight: ${style.font.weight}
+		font-family: ${style.font.family}
+		text-align: ${style.textAlign}
+		text-transform: ${style.transform}
+		padding-bottom: ${style.spacing * style.lineHeight}em
+	`);
+}
