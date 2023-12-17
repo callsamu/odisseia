@@ -3,6 +3,7 @@ import { Page } from './Page';
 import { Body } from './Body';
 import { NormParagraph } from './NormParagraph';
 import { Title } from './Title';
+import { textStyle } from './utils';
 
 export {
     Document,
@@ -10,4 +11,5 @@ export {
     Body,
 		Title,
 		NormParagraph,
+		textStyle,
 };

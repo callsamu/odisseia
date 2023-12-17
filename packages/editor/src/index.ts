@@ -1,7 +1,5 @@
 import { Extension } from '@tiptap/core';
-import { Document, Page, Body, Title, NormParagraph } from './nodes/';
-
-import { TextStyles } from './norms/styles';
+import { Document, Page, Body, Title, NormParagraph, textStyle } from './nodes/';
 
 import { Node } from '@tiptap/pm/model'
 import { Fragment, ResolvedPos, Schema } from '@tiptap/pm/model';
@@ -12,123 +10,19 @@ import { findParentDomRefOfType, findParentNodeOfType } from 'prosemirror-utils'
 import { Text } from '@tiptap/extension-text';
 import { Bold } from '@tiptap/extension-bold';
 
-import { fontSizeInPx, lineHeightInPx } from './norms/utils';
+import { lineHeightInPx } from './norms/utils';
 import { Norm } from './norms/Norm';
 import { DefaultNorm } from './norms/DefaultNorm';
 import { ABNT } from './norms/ABNT';
 import Italic from '@tiptap/extension-italic';
+import { LineCounter, LineData } from './layout/LineCounter';
 
 const TEXT_CONTENT_NODES = [Title.name, NormParagraph.name];
-
-function textStyle(node: Node, norm: Norm): TextStyles {
-	switch (node.type.name) {
-		case Title.name: {
-			return norm.title;
-		}
-		case NormParagraph.name: {
-			return norm.paragraph;
-		}
-		default: {
-			throw new Error(`Unknown text content node: ${node.type.name}`);
-		}
-	}
-}
-
-class TextMeasurer {
-	canvas: HTMLCanvasElement;
-	ctx: CanvasRenderingContext2D;
-
-	constructor() {
-		this.canvas = document.createElement('canvas');
-		this.ctx = this.canvas.getContext('2d')!;
-	}
-
-	setFont(font: string) {
-		this.ctx.font = font;
-	}
-
-	metrics(text: string): TextMetrics {
-		return this.ctx.measureText(text);
-	}
-}
-
-interface LineData {
-	position: number;
-	size: number;
-}
-
-class LineBreaker {
-	constructor(
-		private norm: Norm,
-		private measurer: TextMeasurer,
-		private bounds: DOMRect,
-	) {}
-
-	lines(node: Node): LineData[] {
-		const text = node.textContent;
-		if (text.length === 0) return [{
-			size: 0,
-			position: 0,
-		}];
-
-		let cursor = 0;
-		let prevLine = 0;
-		let lineWidth = 0;
-		const lines: LineData[] = [];
-
-		const style = textStyle(node, this.norm);
-		if (!style) throw new Error("text style not found");
-
-		const size = fontSizeInPx(style);
-
-		const font = `${style.font.weight} ${size}px ${style.font.family}`;
-		this.measurer.setFont(font);
-
-		const blank = this.measurer.metrics(" ");
-
-		for (let i = 0; i < text.length; i++) {
-			const char = text[i];
-			if (char === " " || i === text.length - 1) {
-				const word = text.slice(cursor, i + 1);
-
-				let width!: number;
-				if (word === " ") {
-					width = blank.width;
-				} else {
-					const metrics = this.measurer.metrics(word);
-					width = metrics.width;
-				}
-				
-				if (lineWidth + width > this.bounds.width) {
-					lines.push({ 
-						position: prevLine, 
-						size: cursor - prevLine 
-					});
-					lineWidth = width;
-					prevLine = cursor;
-				} else {
-					lineWidth += width;
-				}
-
-				if (i === text.length - 1) {
-					lines.push({ 
-						position: prevLine, 
-						size: i + 1 - prevLine 
-					});
-				}
-
-				cursor = i + 1;
-			}
-		}
-
-		return lines;
-	}
-}
 
 class Paginator {
 	constructor(
 		private norm: Norm,
-		private lb: LineBreaker,
+		private lc: LineCounter,
 		private schema: Schema,
 		private bodyDimensions: DOMRect,
 	) {}
@@ -177,7 +71,7 @@ class Paginator {
 				const resultant = tr.doc.nodeAt(previousPos + 1);
 				if (!resultant) throw new Error('Failed to join broken nodes: unable to get resultant node');
 
-				const lines = this.lb.lines(resultant);
+				const lines = this.lc.lines(resultant);
 				tr = tr.setNodeAttribute(previousPos + 1, "lines", lines);
 			}
 
@@ -306,6 +200,11 @@ class Paginator {
 			}
 
 			if (TEXT_CONTENT_NODES.includes(type)) {
+				if (height > this.bodyDimensions.height) {
+					split = doc.resolve(pos);
+					return false;
+				}
+
 				const style = textStyle(node, this.norm);
 				if (!style) throw new Error(`${type} style not determined`);
 
@@ -430,7 +329,7 @@ export const PaginatorExtension: Extension = Extension.create<PaginatorOptions, 
 		const dimensions = bodyElement.getBoundingClientRect();
 		storage.dimensions = dimensions;
 
-		const lb = new LineBreaker(
+		const lb = new LineCounter(
 			this.options.norm, 
 			storage.measurer, 
 			dimensions
@@ -492,7 +391,7 @@ export const PaginatorExtension: Extension = Extension.create<PaginatorOptions, 
 			const [, $anchorContentPos] = parentFromPos($anchor);
 			const [, $headContentPos] = parentFromPos($head);
 
-			const lb = new LineBreaker(this.options.norm, measurer, dimensions);
+			const lb = new LineCounter(this.options.norm, measurer, dimensions);
 
 			tr.doc.nodesBetween($anchorContentPos.pos, $headContentPos.pos, (node, pos) => {
 				if (TEXT_CONTENT_NODES.includes(node.type.name)) {
@@ -552,7 +451,7 @@ export const PaginatorExtension: Extension = Extension.create<PaginatorOptions, 
 		inserting = inserting || isOverflown(bodyElement);
 		console.log("OVERFLOWING?", isOverflown(bodyElement));
 
-		const lb = new LineBreaker(this.options.norm, storage.measurer, rect);
+		const lb = new LineCounter(this.options.norm, storage.measurer, rect);
 
 		if (inserting || deleting) {
 			console.log("REPAGINATING", inserting, deleting);
