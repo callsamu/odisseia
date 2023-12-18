@@ -22,6 +22,7 @@ export interface TextStyles {
 	lineHeight: number;
 	textAlign: string;
 	spacing: number; // in em
+	ident: number; // in cm
 	transform: string;
 	font: Font;
 }

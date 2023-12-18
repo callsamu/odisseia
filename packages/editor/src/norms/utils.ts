@@ -16,6 +16,10 @@ export function lineHeightInPx(style: TextStyles): number {
 	return fontSizeInPx(style) * style.lineHeight;
 }
 
+export function cmToPx(cm: number): number {
+	return (cm * 96) / 2.54;
+}
+
 export function bodyWidthInCm(page: PageStyles, body: PageBodyStyles): number {
 	return page.width - body.marginLeft - body.marginRight;
 }
@@ -32,6 +36,7 @@ export function textCSS(style: TextStyles): string {
 		font-family: ${style.font.family}
 		text-align: ${style.textAlign}
 		text-transform: ${style.transform}
+		padding-left: ${style.ident}cm
 		padding-bottom: ${style.spacing * style.lineHeight}em
 	`);
 }

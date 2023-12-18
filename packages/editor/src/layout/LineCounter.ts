@@ -35,6 +35,8 @@ export class LineCounter {
 		const font = `${style.font.weight} ${size}px ${style.font.family}`;
 		this.measurer.setFont(font);
 
+		const bound = this.bounds.width - style.ident;
+
 		const blank = this.measurer.metrics(" ");
 
 		for (let i = 0; i < text.length; i++) {
@@ -50,7 +52,7 @@ export class LineCounter {
 					width = metrics.width;
 				}
 				
-				if (lineWidth + width > this.bounds.width) {
+				if (lineWidth + width > bound) {
 					lines.push({ 
 						position: prevLine, 
 						size: cursor - prevLine 

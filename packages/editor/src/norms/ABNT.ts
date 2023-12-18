@@ -17,6 +17,7 @@ export function ABNT(scale: number = 1): Norm {
 			textAlign: "justify",
 			transform: "uppercase",
 			spacing: 1,
+			ident: 0,
 			font: {
 				size: 14 * scale,
 				weight: 'bold',
@@ -26,12 +27,14 @@ export function ABNT(scale: number = 1): Norm {
 		paragraph: {
 			lineHeight: 1.5,
 			textAlign: "justify",
+			spacing: 1,
+			transform: "none",
+			ident: 0,
 			font: {
 				size: 12 * scale,
 				weight: 'normal',
 				family: 'Times New Roman',
 			},
-			spacing: 1,
 		},
 	};
 };
