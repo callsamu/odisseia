@@ -16,8 +16,9 @@ import { DefaultNorm } from './norms/DefaultNorm';
 import { ABNT } from './norms/ABNT';
 import Italic from '@tiptap/extension-italic';
 import { LineCounter, LineData } from './layout/LineCounter';
+import { Citation } from './nodes/Citation';
 
-const TEXT_CONTENT_NODES = [Title.name, NormParagraph.name];
+const TEXT_CONTENT_NODES = [Title.name, NormParagraph.name, Citation.name];
 
 class Paginator {
 	constructor(
@@ -280,6 +281,7 @@ export const PaginatorExtension: Extension = Extension.create<PaginatorOptions, 
 			Body.configure({ norm: this.options.norm }),
 			Title.configure({ norm: this.options.norm }),
 			NormParagraph.configure({ norm: this.options.norm }),
+			Citation.configure({ norm: this.options.norm }),
 			Text,
 			Bold,
 			Italic,

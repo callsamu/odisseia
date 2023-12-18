@@ -36,5 +36,17 @@ export function ABNT(scale: number = 1): Norm {
 				family: 'Times New Roman',
 			},
 		},
+		citation: {
+			lineHeight: 1.5,
+			textAlign: "justify",
+			spacing: 1,
+			transform: "none",
+			ident: 4 * scale,
+			font: {
+				size: 10 * scale,
+				weight: 'normal',
+				family: 'Times New Roman',
+			},
+		},
 	};
 };

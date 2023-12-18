@@ -5,4 +5,5 @@ export interface Norm {
 	pageBody: PageBodyStyles;
 	title: TextStyles;
 	paragraph: TextStyles;
+	citation: TextStyles;
 }
