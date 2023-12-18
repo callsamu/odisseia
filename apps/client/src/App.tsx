@@ -79,6 +79,9 @@ function App() {
 							<option value="title" selected={editor()!.isActive('title')}>
 								Título
 							</option>
+							<option value="citation" selected={editor()!.isActive('citation')}>
+								Citação (+3 Linhas)	
+							</option>
 						</select>
 						<MarkButton name="bold" editor={editor}>
 							<b>B</b>

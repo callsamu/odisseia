@@ -16,6 +16,7 @@ import { DefaultNorm } from './norms/DefaultNorm';
 import { ABNT } from './norms/ABNT';
 import Italic from '@tiptap/extension-italic';
 import { LineCounter, LineData } from './layout/LineCounter';
+import { TextMeasurer } from './layout/TextMeasurer';
 import { Citation } from './nodes/Citation';
 
 const TEXT_CONTENT_NODES = [Title.name, NormParagraph.name, Citation.name];
