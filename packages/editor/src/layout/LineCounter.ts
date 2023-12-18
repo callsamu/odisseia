@@ -2,6 +2,7 @@ import { Norm } from "../norms/Norm";
 import { Node } from "@tiptap/pm/model";
 import { fontSizeInPx } from "../norms/utils";
 import { textStyle } from "../nodes";
+import { TextMeasurer } from "./TextMeasurer";
 
 export interface LineData {
 	position: number;
